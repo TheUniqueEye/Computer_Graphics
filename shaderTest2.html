@@ -1,0 +1,49 @@
+
+
+
+
+    <html>
+    	<script type="text/javascript" src="https://rawgit.com/patriciogonzalezvivo/glslCanvas/master/build/GlslCanvas.js"></script>
+    	<body>
+    	<canvas class="glslCanvas" data-fragment="
+      // Author: Jing
+    // Title: HW 1 - Fragment shader
+    // 3. rotating effect
+
+    #ifdef GL_ES
+    precision mediump float;
+    #endif
+
+    uniform vec2 u_resolution;
+    uniform vec2 u_mouse;
+    uniform float u_time;
+
+    void main() {
+        vec2 st = gl_FragCoord.xy/u_resolution.xy;
+        st.x *= u_resolution.x/u_resolution.y;
+
+        float t = pow(u_time,2.0)/5000.;
+
+
+
+
+        float d = distance(st,u_mouse/u_resolution);
+        d=d*5.;
+        d = pow(d,2.0)+pow(u_time,1.1); // pow(d,2.0)+u_time;
+
+        float r = fract(abs(sin(st.x+d)));
+            float g = fract(abs(cos(st.y+d)));
+  float b = fract(abs(sin(u_time))+d);
+
+
+
+        vec3 color = vec3(r,g,b);
+
+        gl_FragColor = vec4(color,1.0);
+    }
+    	"
+    	width="800" height="600"> </canvas>
+
+
+    	</body>
+    	</html>

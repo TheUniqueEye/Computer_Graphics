@@ -1,0 +1,299 @@
+<html>
+
+<!--
+
+Author: Jing Yan
+
+Based on GFX.js (author: wolftype | license: MIT)
+
+   Example use of GFX.js (https://rawgit.com/wolftype/200c/gh-pages/js/gfx.js)
+   An ASAP (As-Simple-As-Possible) WebGL Framework For Graphics Experiments
+   With Context, Vectors, Matrices, Quaternions, Frames, Scenes and Shaders
+
+Based on simple sample code to draw a triangle. from KEE 2016-10-17
+-->
+
+
+<script src = "https://rawgit.com/wolftype/200c/gh-pages/js/gfx.js"></script>
+
+<script type="text/javascript">
+
+
+
+var app = new GFX.App();
+//var box;
+var sphere;
+
+/// On Initialization of the WebGL Application (this happens once)
+app.onInit = function(){
+
+
+  /*
+
+  // A CUBE!
+  // We include each vertex on the back side TWICE so that we can attach
+  // TWO separate uv coordinates to each
+  var vertices = new Float32Array( [
+    0.5, -0.5, 1.0,
+    0.0, 0.5, 0.8,
+    -0.5, -0.5, 1.0,
+  ]);
+
+
+  //Create and Bind two new array buffers and a new element array buffer
+  box = new GFX.Mesh();
+
+  //Allocate Some Data on the GPU and copy position data over
+  box.vertexBuffer.bind();
+  box.vertexBuffer.alloc( vertices.byteLength );
+  box.vertexBuffer.data(vertices);
+
+  */
+
+  var v = [];
+
+   var x = new GFX.Vector(1.0,0.0,0.0); //x axis
+   var y = new GFX.Vector(0.0,1.0,0.0); //y axis
+   var z = new GFX.Vector(0.0,0.0,1.0); //z axis
+
+   var quatA = new GFX.Quaternion();
+   var quatB = new GFX.Quaternion();
+
+   var num = 12.;
+   for (var i=0;i<num;++i){
+     quatA.setAxisAngle( y, 2.*Math.PI * i/num );
+     //a rotation of the z axis around the y axis, by amount 0 - 2PI
+     var axis = quatA.apply(z);
+     for (var j=0; j<num; ++j){
+       //a rotation around the rotated the z axis:
+       quatB.setAxisAngle( axis, Math.PI * ((j/num) - .5)  ) ;
+       //the first rotation, followed by the second:
+       var q = quatB.mult(quatA);
+       //apply it to the x axis
+       var vec = q.apply(x);
+       //add to our list of vertices
+       v.push(vec.x, vec.y, vec.z);
+     }
+   }
+
+   var vertices = new Float32Array( v );
+
+
+     var texCoord = new Float32Array([
+
+        // 0.0, 1.0,
+        // 0.0, 1.0,
+        // 0.0, 0.0,
+        // 1.0, 0.0,
+        //
+        // 0.0, 1.0,
+        // 0.0, 1.0,
+        // 0.0, 0.0,
+        // 1.0, 0.0,
+        //
+        // 0.0, 1.0,
+        // 0.0, 1.0,
+        // 0.0, 0.0,
+        // 1.0, 0.0,
+
+     ]);
+
+     //Break Object Vertices Triangles
+      var indices = new Uint16Array([
+
+        // 1,2,3,3,0,1,
+        // 1,2,0,0,3,2,
+
+
+      ]);
+
+      //Create and Bind two new array buffers and a new element array buffer
+      sphere = new GFX.Mesh();
+
+      //Allocate Some Data on the GPU and copy position data over
+      sphere.vertexBuffer.bind();
+      sphere.vertexBuffer.alloc( vertices.byteLength );
+      sphere.vertexBuffer.data(vertices);
+
+      //Allocate Some Data on the GPU and copy tex data over
+      sphere.texBuffer.bind();
+      sphere.texBuffer.alloc( texCoord.byteLength );
+      sphere.texBuffer.data(texCoord);
+
+      //Allocate Some Data on the GPU and copy index data over
+      sphere.indexBuffer.bind();
+      sphere.indexBuffer.alloc( indices.byteLength );
+      sphere.indexBuffer.data(indices);
+
+
+}
+
+
+// Render the scene
+app.onRender = function() {
+
+  var scene = this.scene;
+
+
+  //rotate scene camera about y axis
+  //scene.camera.frame.rotateY( Math.sin( scene.time) * Math.PI / 10  );
+
+  //begin scene render, send matrices over to shader uniform
+  scene.begin();
+
+  //Send Time Variable over to GPU
+  scene.shader.setUniformFloat("u_time", scene.time )
+
+  // sphere.frame.rotateY( scene.time );
+  // sphere.frame.rotateZ( Math.sin(scene.time) );
+
+    //upload model matrix
+    sphere.uploadModel(scene.shader)
+
+    //Bind Vertex Buffer
+    sphere.vertexBuffer.bind();
+    //enable attributes in shader
+    scene.shader.enableAttribute( "position" );
+    scene.shader.enableAttribute( "uv" );
+    //Point Buffer to Attribute in shader
+    scene.shader.pointAttribute("position", 3);
+    scene.shader.pointAttribute("uv", 2)
+    //Bind TexCoord Buffer
+    sphere.texBuffer.bind();
+    //Bind Index Buffer and Draw based on Indices
+    sphere.vertexBuffer.bind();
+    sphere.vertexBuffer.drawArrays(GL.TRIANGLES); // & what is that
+
+
+   //or just draw the vertex array buffer directly as points (can also use GL.LINES, GL.LINE_STRIP, GL.TRIANGLES, etc)
+   //  box.vertexBuffer.bind();
+   //  box.vertexBuffer.drawArrays(GL.POINTS);
+
+  scene.end();
+}
+
+</script>
+
+<!-- VERTEX SHADER -->
+<script id="gfxvert" type="text/glsl">
+
+  #ifdef GL_ES
+  precision lowp float;
+  #endif
+
+  attribute vec3 position;      //Position
+    attribute vec2 uv;
+      varying vec2 vuv;
+
+  uniform mat4 model;           //Model Matrix
+  uniform mat4 view;            //View Matrix
+  uniform mat4 projection;      //Projection Matrix
+
+  uniform float u_time;
+
+  // 2D Random
+  float random (in vec2 st) {
+      return fract(sin(dot(st.xy,
+                           vec2(3.0/100.0)))
+                   *500.0*sin(u_time/500.0));
+  }
+
+  // 2D Noise based on Morgan McGuire @morgan3d
+  // https://www.shadertoy.com/view/4dS3Wd
+  float noise (in vec2 st,float t) {
+      vec2 i = floor(st);
+      vec2 f = fract(st);
+
+      // Four corners in 2D of a tile
+      float a = random(i);
+      float b = random(i + vec2(1.0, 0.0));
+      float c = random(i + vec2(0.0, 1.0));
+      float d = random(i + vec2(1.0, 1.0));
+
+      // Smooth Interpolation
+
+      // Cubic Hermine Curve.  Same as SmoothStep()
+      vec2 u = f*f*(3.0-2.0*f);
+
+      u = f;
+
+      // Mix 4 coorners porcentages
+      return mix(a, b, u.x) +
+              (c - a)* u.y * (1.0 - u.x) +
+              (d - b) * u.x * u.y;
+  }
+
+
+  void main() {
+vuv = uv;
+    gl_Position = projection * view * model * vec4(position.x*sin(10.0*noise(uv,u_time)),position.y*(1.+cos(10.0*noise(uv,u_time*2.0))),position.z*sin(10.0*noise(uv,u_time*1.4)+0.), 1.0);
+    //gl_PointSize = 10.0;
+  }
+</script>
+
+
+<!-- FRAGMENT SHADER -->
+<script id="gfxfrag" type="text/glsl">
+
+  #ifdef GL_ES
+  precision lowp float;
+  #endif
+
+  uniform float u_time;
+
+varying vec2 vuv;
+
+
+  // 2D Random
+  float random (in vec2 st) {
+      return fract(sin(dot(st.xy,
+                           vec2(3.0/100.0)))
+                   *500.0*sin(u_time/500.0));
+  }
+
+  // 2D Noise based on Morgan McGuire @morgan3d
+  // https://www.shadertoy.com/view/4dS3Wd
+  float noise (in vec2 st,float t) {
+      vec2 i = floor(st);
+      vec2 f = fract(st);
+
+      // Four corners in 2D of a tile
+      float a = random(i);
+      float b = random(i + vec2(1.0, 0.0));
+      float c = random(i + vec2(0.0, 1.0));
+      float d = random(i + vec2(1.0, 1.0));
+
+      // Smooth Interpolation
+
+      // Cubic Hermine Curve.  Same as SmoothStep()
+      vec2 u = f*f*(3.0-2.0*f);
+
+      u = f;
+
+      // Mix 4 coorners porcentages
+      return mix(a, b, u.x) +
+              (c - a)* u.y * (1.0 - u.x) +
+              (d - b) * u.x * u.y;
+  }
+
+  void main() {
+    // vec3 color = vec3(abs(sin(u_time)),abs(cos(u_time)),0.0);
+    // gl_FragColor = vec4(color,1.0);
+    vec2 st = vuv;
+
+    // Scale the coordinate system to see
+    // some noise in action
+    vec2 pos = vec2(st*30.0*sin(u_time/10.0));
+
+    // Use the noise function
+    float n = noise(pos,u_time); //+vec2(tan(sin(u_time)),tan(u_time)));
+
+    gl_FragColor = vec4(vec3(sin(n+u_time),sin(n*n),cos(20.0*n+u_time)),1.0);
+  }
+</script>
+
+<body onload=app.start()>
+<canvas id="gfxcanvas" width=640 height=480> No <code> canvas </code> tag support </canvas>
+
+</body>
+</html>

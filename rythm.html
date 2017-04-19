@@ -1,0 +1,143 @@
+<html>
+
+<script src = "https://rawgit.com/wolftype/200c/gh-pages/js/gfx_v02.js"></script>
+
+<script type="text/javascript">
+
+var app = new GFX.App();
+var model;
+
+/// On Initialization of the WebGL Application (this happens once)
+app.onInit = function(){
+
+    this.scene.color = [0.2,0.2,0.2,1.0];
+
+    var vertices = new Float32Array( [
+    -1.0, -1.0, 1.0,  //bottom left front
+     -1.0, 1.0,  1.0,  //top left front
+     1.0,  1.0,  1.0,  //top right front
+     1.0,  -1.0, 1.0,  //bottom right front
+
+     -1.0, -1.0, -1.0, //bottom left back
+     -1.0, 1.0,  -1.0, //top left back
+     1.0,  1.0,  -1.0, //top right back
+     1.0,  -1.0, -1.0, //bottom right back
+
+     //second copy of back side:
+     -1.0, -1.0, -1.0, //bottom left back II
+     -1.0, 1.0,  -1.0, //top left back II
+     1.0,  1.0,  -1.0, //top right back II
+     1.0,  -1.0, -1.0, //bottom right back II
+    ]);
+
+    var texCoord = new Float32Array([
+      0.0, 0.0,
+      0.0, 1.0,
+      1.0, 1.0,
+      1.0, 0.0,
+      1.0, 0.0,
+      1.0, 1.0,
+      0.0, 1.0,
+      0.0, 0.0,
+      //uvs to attach to second copy of back face
+      //for texturing top and bottom of cube:
+      0.0, 1.0,
+      0.0, 0.0,
+      1.0, 0.0,
+      1.0, 1.0,
+
+    ]);
+
+    var indices = new Uint16Array([
+      1,0,3,2,1,3, //front
+      2,3,7,6,2,7, //right
+      6,7,4,5,6,4, //back
+      5,4,1,1,4,0, //left
+      //use alternative uvs for top and bottom:
+      9,1,2,10,9,2, //top
+      0,8,11,3,0,11 //bottom
+
+    ]);
+
+    model = new GFX.Mesh();
+    model.load(vertices, indices);
+    model.loadUV(texCoord);
+}
+
+// Render the scene
+app.onRender = function() {
+    var scene = this.scene;
+
+    //begin scene render, send matrices over to shader uniform
+    scene.begin();
+    //Send Time Variable over to GPU
+    scene.shader.setUniformFloat("u_time", scene.time );
+
+    var sizeMain = (Math.sin(scene.time)+1.1)*0.05;
+    scene.matrix.push();
+      scene.matrix.rotate(Math.sin(scene.time), 1,1,1);
+      scene.matrix.scale(sizeMain,sizeMain,sizeMain);
+      scene.draw(model);
+    scene.matrix.pop();
+
+    var sizeSmall;
+    for (var i =0;i < 30; i++){
+        sizeSmall = (Math.sin(scene.time+i)+1.1)*0.1;
+        //scene.matrix.rotate(Math.sin(scene.time*0.1+i)*10.0, 1,0,1); // uncomment to make universe in one line
+
+        scene.matrix.push();
+          scene.matrix.translate(-29*0.25,0,0);
+          scene.matrix.translate(i*0.5,0,0);
+
+          scene.matrix.scale(0.01,sizeSmall,0.01);
+          scene.draw(model);
+        scene.matrix.pop();
+    }
+
+    scene.end();
+}
+
+</script>
+
+<!-- VERTEX SHADER -->
+<script id="gfxvert" type="text/glsl">
+    #ifdef GL_ES
+    precision mediump float;
+    #endif
+
+    attribute vec3 position;      //Position
+    attribute vec2 uv;            //Texture;
+
+    uniform mat4 model;           //Model Matrix
+    uniform mat4 view;            //View Matrix
+    uniform mat4 projection;      //Projection Matrix
+
+    varying vec2 vuv;             //Texture Coordiante to Output to Fragment Shader
+
+    void main() {
+        vuv = uv;
+        gl_Position = projection * view * model * vec4(position, 1.0);
+    }
+</script>
+
+<!-- FRAGMENT SHADER -->
+<script id="gfxfrag" type="text/glsl">
+    #ifdef GL_ES
+    precision mediump float;
+    #endif
+
+    //uniform float selector;
+    varying vec2 vuv;
+
+    void main() {
+        vec2 st = vuv;
+        vec3 color = vec3(st.x*0.5+.5);
+        gl_FragColor = vec4(color, 1.0);
+    }
+</script>
+
+<body onload=app.start()>
+<canvas id="gfxcanvas" width=1280 height=500> No <code> canvas </code> tag support </canvas>
+
+</body>
+</html>
